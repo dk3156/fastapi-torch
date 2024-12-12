@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mnist-was
+  namespace: default
+spec:
+  revisionHistoryLimit: 1
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mnist-was
+  template:
+    metadata:
+      labels:
+        app: mnist-was
+    spec:
+      containers:
+        - name: mnist-was
+          image: dongjekim1030/mnist-was:main
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mnist-was
+  namespace: default
+  labels:
+    app: mnist-was
+spec:
+  selector:
+    app: mnist-was
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: web
+  type: ClusterIP
