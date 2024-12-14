@@ -1,5 +1,4 @@
 name: Publish Docker image
-
 on:
   push:
     branches:
@@ -18,6 +17,16 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          install: true
+
+      - name: Create builder with docker-container driver
+        run: |
+          docker buildx create --use --name mybuilder --driver docker-container
+          docker buildx inspect --bootstrap
+
       - name: Log in to Docker Hub
         uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
         with:
@@ -30,11 +39,10 @@ jobs:
         with:
           images: dongjekim1030/mnist-was
 
-      - name: Build and push Docker image
-        id: push
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+      - name: Build and Push image
+        run: |
+          docker buildx build \
+            --file ./Dockerfile \
+            --platform linux/arm64,linux/amd64\
+            --tag dongjekim1030/mnist-was:main \
+            --push .
