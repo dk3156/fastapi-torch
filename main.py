@@ -1,13 +1,18 @@
-from fastapi import FastAPI, UploadFile, HTTPException
+import base64
+import time
+
+from fastapi import FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
 import io
+from sqlalchemy import create_engine, text
 
 # uvicorn main:app --reload
 app = FastAPI()
+engine = create_engine("postgresql://myuser:mypassword@localhost:5432/mydatabase")
 
 origins = [
     "http://localhost:5173",
@@ -21,7 +26,6 @@ app.add_middleware(
     allow_methods=["*"],                  # Allow all HTTP methods
     allow_headers=["*"],                  # Allow all headers
 )
-
 
 # Load model
 class GarmentClassifier(torch.nn.Module):
@@ -75,11 +79,46 @@ class PredictionRequest(BaseModel):
 
 @app.post("/predict")
 async def predict_endpoint(file: UploadFile):
+    start_time = time.time()
+    input_data, prediction, error_message = None, None, None
+
     if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
-    image_bytes = await file.read()
+        log_level = "ERROR"
+        error_message = "file 파라미터는 이미지여야 합니다."
+    else:
+        image_bytes = await file.read()
+        file_string = base64.b64encode(image_bytes).decode("utf-8")
+        input_data = file_string
+
+        try:
+            prediction = predict(image_bytes)
+            log_level = "INFO"
+        except Exception as e:
+            log_level = "ERROR"
+            error_message = str(e)
+    execution_time = time.time() - start_time
+
     try:
-        prediction = predict(image_bytes)
-        return {"class": prediction}
+        with engine.connect() as conn:
+            with conn.begin():
+                conn.execute(
+                    text(
+                        """
+                        INSERT INTO logs (log_level, timestamp, http_method, endpoint, input_data, prediction, execution_time, error_message)
+                        VALUES (:log_level, NOW(), :method, :endpoint, :input_data, :prediction, :execution_time, :error_message)
+                        """
+                    ),
+                    {
+                        "log_level": log_level,
+                        "method": "POST",
+                        "endpoint": "/predict",
+                        "input_data": input_data,
+                        "prediction": prediction,
+                        "execution_time": execution_time,
+                        "error_message": error_message,
+                    },
+                )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(str(e))
+
+    return {"class": prediction}
