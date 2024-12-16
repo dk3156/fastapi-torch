@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, text
 
 # uvicorn main:app --reload
 app = FastAPI()
-engine = create_engine("postgresql://myuser:mypassword@localhost:5432/mydatabase")
+engine = create_engine("postgresql://myuser:mypassword@postgres:5432/mydatabase")
 
 origins = [
     "http://localhost:5173",
@@ -84,7 +84,7 @@ async def predict_endpoint(file: UploadFile):
 
     if not file.content_type.startswith("image/"):
         log_level = "ERROR"
-        error_message = "file 파라미터는 이미지여야 합니다."
+        error_message = "잘못된 형식의 image 입니다"
     else:
         image_bytes = await file.read()
         file_string = base64.b64encode(image_bytes).decode("utf-8")
