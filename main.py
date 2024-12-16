@@ -10,7 +10,7 @@ from PIL import Image
 import io
 from sqlalchemy import create_engine, text
 
-# uvicorn main:app --reload
+# making changes to a file
 app = FastAPI()
 engine = create_engine("postgresql://myuser:mypassword@postgres:5432/mydatabase")
 
